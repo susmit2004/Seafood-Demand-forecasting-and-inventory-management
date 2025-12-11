@@ -1,0 +1,54 @@
+{
+  "training_date": "2025-12-11T00:24:47.894158",
+  "models_trained": [
+    "xgboost",
+    "lightgbm"
+  ],
+  "metrics": {
+    "xgboost": {
+      "mae": 1.2975620817582398,
+      "rmse": 29.398880805540816,
+      "mse": 864.2941926183962,
+      "mape": 8.17535420386983
+    },
+    "lightgbm": {
+      "mae": 1.3486908712010235,
+      "rmse": 28.388012867470778,
+      "mse": 805.8792745636864,
+      "mape": 9.438626287644283
+    }
+  },
+  "feature_columns": [
+    "AMOUNT",
+    "RATE",
+    "BOX",
+    "year",
+    "month",
+    "day",
+    "day_of_week",
+    "day_of_year",
+    "week_of_year",
+    "is_weekend",
+    "is_month_start",
+    "is_month_end",
+    "quarter",
+    "lag_1",
+    "lag_3",
+    "lag_7",
+    "rolling_mean_7",
+    "rolling_std_7",
+    "rolling_min_7",
+    "rolling_max_7",
+    "rolling_mean_14",
+    "rolling_std_14",
+    "rolling_min_14",
+    "rolling_max_14",
+    "month_sin",
+    "month_cos",
+    "week_sin",
+    "week_cos",
+    "day_of_year_sin",
+    "day_of_year_cos"
+  ],
+  "best_model": "lightgbm"
+}

@@ -1,0 +1,12 @@
+# config/model_config.yaml
+model:
+  xgboost:
+    n_estimators: 100
+    max_depth: 6
+    learning_rate: 0.1
+  lightgbm:
+    n_estimators: 100
+    max_depth: 6
+    learning_rate: 0.1
+  forecast_horizon: 30
+  retraining_interval: 7

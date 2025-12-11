@@ -1,0 +1,28 @@
+data:
+  raw_path: "data/raw/Production_1_Cleaned_Expanded.csv"
+  processed_path: "data/processed/forecasting_data.parquet"
+  external_path: "data/external/"
+  
+model:
+  target_column: "PAY WEIGHT"
+  date_column: "DATE"
+  item_column: "ITEM"
+  center_column: "CENTER NAME"
+  forecast_horizon: 30
+  test_size: 0.2
+  validation_size: 0.1
+  
+training:
+  n_splits: 3
+  random_state: 42
+  early_stopping_rounds: 50
+  
+features:
+  lag_features: [1, 3, 7]
+  rolling_windows: [7, 14]
+  seasonal_features: true
+  
+api:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false

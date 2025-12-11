@@ -1,0 +1,1291 @@
+================================================================================
+                    SEAFOOD DEMAND FORECASTING PROJECT
+                    COMPREHENSIVE EXPLANATION DOCUMENT
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+1. PROJECT OVERVIEW
+2. ARCHITECTURE & COMPONENTS
+3. DATA PIPELINE EXPLANATION
+4. MACHINE LEARNING MODELS & ALGORITHMS
+5. FORECAST ENGINE
+6. DASHBOARD (STREAMLIT)
+7. API (FASTAPI)
+8. MONITORING & DRIFT DETECTION
+9. MODEL REGISTRY & DEPLOYMENT
+10. ALL "WH" QUESTIONS ANSWERED
+
+================================================================================
+1. PROJECT OVERVIEW
+================================================================================
+
+WHAT is this project?
+---------------------
+This is an AI-powered Seafood Demand Forecasting System designed to predict 
+future demand for seafood products across multiple distribution centers. The 
+system uses machine learning models (XGBoost and LightGBM) to forecast demand,
+helping businesses optimize inventory, reduce waste, and prevent stockouts.
+
+WHY was this project created?
+-----------------------------
+- To solve the problem of inaccurate demand forecasting in seafood distribution
+- To reduce food waste by predicting exact demand quantities
+- To prevent stockouts that lead to lost sales
+- To optimize inventory levels and reduce holding costs
+- To provide data-driven insights for business decision-making
+- To automate the forecasting process that was previously done manually
+
+WHO uses this project?
+----------------------
+- Seafood distribution companies
+- Supply chain managers
+- Inventory managers
+- Business analysts
+- Operations teams
+- Data scientists
+
+WHERE is it deployed?
+---------------------
+- Local development: http://localhost:8501 (Dashboard), http://localhost:8000 (API)
+- Can be deployed on cloud platforms (AWS, Azure, GCP)
+- Docker containers for containerized deployment
+- Production servers for enterprise use
+
+WHEN is it used?
+----------------
+- Daily: For generating daily demand forecasts
+- Weekly: For weekly inventory planning
+- Monthly: For monthly business planning
+- Real-time: For immediate demand predictions when needed
+- During peak seasons: For handling seasonal demand spikes
+
+HOW does it work?
+-----------------
+1. Historical data is processed through a data pipeline
+2. Features are engineered (lag features, rolling statistics, seasonality)
+3. Machine learning models are trained on historical data
+4. Models predict future demand based on patterns learned
+5. Forecasts are displayed in an interactive dashboard
+6. API endpoints provide programmatic access to forecasts
+7. Monitoring systems track model performance and data drift
+
+================================================================================
+2. ARCHITECTURE & COMPONENTS
+================================================================================
+
+PROJECT STRUCTURE:
+-----------------
+seafood-forecasting/
+├── app/                    # Application code
+│   ├── main.py            # FastAPI backend with SimpleForecastEngine
+│   ├── dashboard.py        # Streamlit interactive dashboard
+│   ├── api/                # API routes and schemas
+│   └── frontend/           # Frontend static assets
+├── config/                 # Configuration files
+│   ├── config.yaml        # Main configuration
+│   └── model_config.yaml  # Model-specific configuration
+├── data/                   # Data storage
+│   ├── raw/               # Raw CSV data
+│   ├── processed/         # Processed Parquet files
+│   └── external/          # External data sources
+├── models/                 # Model management
+│   ├── saved_models/       # Trained model files (.pkl)
+│   └── model_registry.py  # MLflow model registry
+├── scripts/                # Utility scripts
+│   ├── data_pipeline.py   # Data processing pipeline
+│   ├── train_model.py     # Model training script
+│   └── utils.py            # Helper functions
+├── monitoring/             # Monitoring components
+│   ├── drift_detection.py # Data drift detection
+│   └── performance_tracking.py # Performance monitoring
+└── tests/                  # Test files
+
+KEY COMPONENTS EXPLAINED:
+-------------------------
+
+1. DATA PIPELINE (scripts/data_pipeline.py)
+   WHAT: Processes raw CSV data into ML-ready format
+   WHY: Raw data needs cleaning, feature engineering, and formatting
+   WHERE: Runs as a script before model training
+   WHEN: Before training models, or when new data arrives
+   WHO: Data engineers or automated pipelines
+   HOW: 
+   - Loads raw CSV from data/raw/
+   - Cleans missing values
+   - Creates time series features
+   - Aggregates by date, center, item
+   - Saves processed data as Parquet
+
+2. MODEL TRAINING (scripts/train_model.py)
+   WHAT: Trains XGBoost and LightGBM models
+   WHY: To learn patterns from historical data for predictions
+   WHERE: Runs as a script, saves models to models/saved_models/
+   WHEN: Initially, and periodically for retraining
+   WHO: Data scientists or automated training pipelines
+   HOW:
+   - Loads processed data
+   - Splits into train/test sets
+   - Trains both models
+   - Evaluates performance
+   - Saves best models
+
+3. FORECAST ENGINE (app/main.py - SimpleForecastEngine)
+   WHAT: Core engine that generates forecasts
+   WHY: Centralized logic for all forecasting operations
+   WHERE: Loaded in FastAPI app and Streamlit dashboard
+   WHEN: On application startup, used for all forecast requests
+   WHO: Backend services (API and Dashboard)
+   HOW:
+   - Loads trained models
+   - Loads processed data
+   - Generates forecasts based on inputs
+   - Returns predictions with confidence intervals
+
+4. DASHBOARD (app/dashboard.py)
+   WHAT: Interactive web interface for users
+   WHY: User-friendly way to view forecasts and analytics
+   WHERE: Runs on Streamlit server (port 8501)
+   WHEN: Continuously running, accessed by users
+   WHO: Business users, analysts, managers
+   HOW:
+   - Uses Streamlit framework
+   - Connects to ForecastEngine
+   - Displays charts and tables
+   - Allows user interactions
+
+5. API (app/main.py - FastAPI)
+   WHAT: RESTful API for programmatic access
+   WHY: Allows integration with other systems
+   WHERE: Runs on FastAPI server (port 8000)
+   WHEN: Continuously running, called by external systems
+   WHO: Developers, other applications, automated systems
+   HOW:
+   - Defines endpoints (/forecast, /centers, /items)
+   - Uses FastAPI framework
+   - Returns JSON responses
+   - Handles errors gracefully
+
+================================================================================
+3. DATA PIPELINE EXPLANATION
+================================================================================
+
+WHAT is the Data Pipeline?
+---------------------------
+The data pipeline transforms raw seafood transaction data into a structured
+dataset ready for machine learning. It handles data cleaning, feature engineering,
+and time series preparation.
+
+WHY is it needed?
+-----------------
+- Raw data is messy: missing values, inconsistent formats
+- ML models need structured features, not raw transactions
+- Time series data requires special handling (lags, seasonality)
+- Aggregation needed: daily transactions → daily demand per center/item
+
+WHERE does it run?
+------------------
+- Script: scripts/data_pipeline.py
+- Input: data/raw/Production_1_Cleaned_Expanded.csv
+- Output: data/processed/forecasting_data.parquet
+
+WHEN is it executed?
+-------------------
+- Before initial model training
+- When new raw data arrives
+- During data refresh cycles
+- Before retraining models
+
+WHO executes it?
+---------------
+- Data engineers manually
+- Automated ETL pipelines
+- CI/CD workflows
+- Scheduled cron jobs
+
+HOW does it work? (Step-by-step)
+---------------------------------
+
+STEP 1: Load Raw Data
+- Reads CSV file from data/raw/
+- Identifies columns: DATE, CENTER NAME, ITEM, PAY WEIGHT
+- Converts DATE to datetime format
+- Handles date parsing errors
+
+STEP 2: Handle Missing Values
+- Numeric columns (PAY WEIGHT, RATE, AMOUNT): Fill with 0
+- Categorical columns (CENTER NAME, ITEM): Fill with "Unknown"
+- Removes rows with missing critical dates
+
+STEP 3: Create Forecasting Dataset
+- Aggregates transactions by DATE, CENTER NAME, ITEM
+- Sums PAY WEIGHT (demand) per day per center-item combination
+- Creates complete date range (fills missing dates with 0 demand)
+- Ensures all center-item combinations have all dates
+
+STEP 4: Feature Engineering
+This is the most important step:
+
+A. Date Features:
+   - year, month, day, day_of_week, day_of_year
+   - week_of_year, quarter
+   - is_weekend, is_month_start, is_month_end
+   WHY: Captures temporal patterns (weekends have different demand)
+
+B. Lag Features:
+   - lag_1: Demand 1 day ago
+   - lag_3: Demand 3 days ago
+   - lag_7: Demand 7 days ago
+   WHY: Recent demand is a strong predictor of future demand
+   HOW: Uses pandas shift() function grouped by center-item
+
+C. Rolling Statistics:
+   - rolling_mean_7: 7-day average demand
+   - rolling_mean_14: 14-day average demand
+   - rolling_std_7: 7-day standard deviation
+   - rolling_min_7, rolling_max_7
+   WHY: Captures trends and volatility in demand patterns
+
+D. Seasonal Features:
+   - month_sin, month_cos: Monthly seasonality (sine/cosine encoding)
+   - week_sin, week_cos: Weekly seasonality
+   - day_of_year_sin, day_of_year_cos: Yearly seasonality
+   WHY: Seafood demand has strong seasonal patterns (holidays, weather)
+   HOW: Uses sine/cosine to encode cyclical patterns (0-2π)
+
+STEP 5: Save Processed Data
+- Saves to Parquet format (efficient, compressed)
+- Preserves all features for model training
+- Ready for ML pipeline
+
+KEY ALGORITHMS USED IN PIPELINE:
+--------------------------------
+1. Time Series Aggregation: GroupBy operations
+2. Lag Feature Creation: pandas shift() with groupby
+3. Rolling Window Calculations: pandas rolling()
+4. Cyclical Encoding: Sine/Cosine transformations
+5. Panel Data Creation: MultiIndex for complete time series
+
+================================================================================
+4. MACHINE LEARNING MODELS & ALGORITHMS
+================================================================================
+
+WHAT models are used?
+---------------------
+1. XGBoost (Extreme Gradient Boosting)
+2. LightGBM (Light Gradient Boosting Machine)
+
+Both are gradient boosting ensemble methods.
+
+WHY these models?
+-----------------
+- Excellent for tabular data (structured data with features)
+- Handle non-linear relationships well
+- Capture feature interactions automatically
+- Fast training and prediction
+- Good performance on time series forecasting
+- Can handle missing values
+- Provide feature importance
+
+WHERE are they used?
+--------------------
+- Training: scripts/train_model.py
+- Storage: models/saved_models/xgboost_model.pkl, lightgbm_model.pkl
+- Inference: app/main.py (SimpleForecastEngine)
+- API: app/main.py endpoints
+- Dashboard: app/dashboard.py (via ForecastEngine)
+
+WHEN are they used?
+-------------------
+- Training: Initially and during retraining cycles
+- Inference: Every time a forecast is requested
+- Evaluation: After training to assess performance
+
+WHO uses them?
+--------------
+- Backend services (automated)
+- Users (via dashboard)
+- External systems (via API)
+
+HOW do they work?
+
+XGBOOST ALGORITHM:
+------------------
+WHAT: Gradient boosting decision tree ensemble
+HOW IT WORKS:
+1. Starts with initial prediction (mean of target)
+2. Builds decision trees sequentially
+3. Each tree corrects errors of previous trees
+4. Final prediction = sum of all tree predictions
+
+TECHNICAL DETAILS:
+- Algorithm: Gradient Boosting with regularization
+- Loss Function: Mean Squared Error (MSE) for regression
+- Tree Building: Level-wise (breadth-first)
+- Regularization: L1 (alpha) and L2 (lambda) to prevent overfitting
+- Feature Importance: Based on how often features are used in splits
+
+HYPERPARAMETERS (from model_config.yaml):
+- n_estimators: 100 (number of trees)
+- max_depth: 6 (maximum tree depth)
+- learning_rate: 0.1 (shrinkage rate)
+- random_state: 42 (reproducibility)
+
+WHY these parameters?
+- n_estimators=100: Balance between accuracy and speed
+- max_depth=6: Prevents overfitting, captures interactions
+- learning_rate=0.1: Standard rate, allows gradual learning
+
+LIGHTGBM ALGORITHM:
+-------------------
+WHAT: Gradient boosting with leaf-wise tree growth
+HOW IT WORKS:
+1. Similar to XGBoost but grows trees leaf-wise (depth-first)
+2. More efficient memory usage
+3. Faster training on large datasets
+4. Better handling of categorical features
+
+TECHNICAL DETAILS:
+- Algorithm: Gradient Boosting with leaf-wise growth
+- Loss Function: Mean Squared Error (MSE)
+- Tree Building: Leaf-wise (depth-first, chooses best leaf to split)
+- Gradient-based One-Side Sampling (GOSS): Uses gradients to sample data
+- Exclusive Feature Bundling (EFB): Groups sparse features
+
+HYPERPARAMETERS:
+- n_estimators: 100
+- max_depth: -1 (unlimited, but limited by num_leaves)
+- learning_rate: 0.1
+- random_state: 42
+
+WHY LightGBM?
+- Faster training than XGBoost
+- Lower memory usage
+- Often better accuracy
+- Good for large datasets
+
+MODEL TRAINING PROCESS:
+-----------------------
+WHAT: Process of teaching models to predict demand
+HOW (Step-by-step):
+
+1. DATA PREPARATION:
+   - Load processed data from Parquet
+   - Separate features (X) and target (y = PAY WEIGHT)
+   - Remove rows with missing target
+   - Fill missing features with 0
+
+2. TRAIN-TEST SPLIT:
+   - Split: 80% train, 20% test
+   - shuffle=False: Important for time series (preserve temporal order)
+   - Test set = most recent data (realistic evaluation)
+
+3. MODEL TRAINING:
+   For XGBoost:
+   - Initialize XGBRegressor with hyperparameters
+   - Fit on training data: model.fit(X_train, y_train)
+   - Model learns patterns in features → target relationship
+
+   For LightGBM:
+   - Initialize LGBMRegressor with hyperparameters
+   - Fit on training data
+   - Similar process but different algorithm
+
+4. MODEL EVALUATION:
+   Metrics calculated:
+   - MAE (Mean Absolute Error): Average prediction error
+   - RMSE (Root Mean Squared Error): Penalizes large errors more
+   - MSE (Mean Squared Error): Squared errors
+   - MAPE (Mean Absolute Percentage Error): Percentage error
+
+   WHY these metrics?
+   - MAE: Easy to interpret (average kg error)
+   - RMSE: More sensitive to outliers
+   - MAPE: Percentage-based, good for business communication
+
+5. MODEL SAVING:
+   - Save models using joblib (efficient serialization)
+   - Save feature columns list (needed for inference)
+   - Save training metrics to JSON
+
+FEATURE IMPORTANCE:
+-------------------
+WHAT: Which features are most important for predictions
+HOW: Calculated by models during training
+- XGBoost: Based on frequency of feature use in splits
+- LightGBM: Based on gain (improvement in loss function)
+
+IMPORTANT FEATURES (typically):
+1. Lag features (lag_1, lag_7): Recent demand is very predictive
+2. Rolling means: Captures trends
+3. Seasonal features: Captures yearly/monthly patterns
+4. Date features: Day of week, month effects
+
+================================================================================
+5. FORECAST ENGINE EXPLANATION
+================================================================================
+
+WHAT is the Forecast Engine?
+-----------------------------
+The SimpleForecastEngine class is the core component that orchestrates all
+forecasting operations. It loads models, manages data, and generates predictions.
+
+WHY is it needed?
+-----------------
+- Centralizes forecasting logic
+- Manages model lifecycle (loading, caching)
+- Provides consistent interface for API and Dashboard
+- Handles data loading and preprocessing
+- Generates forecasts with confidence intervals
+
+WHERE is it located?
+--------------------
+- Defined in: app/main.py
+- Also embedded in: app/dashboard.py (for dashboard use)
+- Used by: FastAPI endpoints and Streamlit dashboard
+
+WHEN is it used?
+----------------
+- On application startup: Loads models and data
+- On every forecast request: Generates predictions
+- On data analysis requests: Analyzes uploaded data
+
+WHO uses it?
+------------
+- FastAPI backend (for API endpoints)
+- Streamlit dashboard (for user interface)
+- External systems (via API calls)
+
+HOW does it work?
+
+CLASS STRUCTURE:
+----------------
+class SimpleForecastEngine:
+    - __init__(): Initializes engine, loads config, models, data
+    - _load_models(): Loads XGBoost and LightGBM models from disk
+    - _load_data(): Loads processed data or creates sample data
+    - _create_sample_data(): Generates synthetic data if real data missing
+    - get_available_centers(): Returns list of centers
+    - get_available_items(): Returns items for a center
+    - generate_forecast(): Main forecasting method
+    - analyze_uploaded_data(): Analyzes user-uploaded CSV files
+
+INITIALIZATION PROCESS:
+----------------------
+WHAT happens when engine starts?
+
+1. Load Configuration:
+   - Reads config/config.yaml
+   - Sets paths for data and models
+   - Configures column names (DATE, CENTER NAME, ITEM, PAY WEIGHT)
+
+2. Load Models:
+   - Checks for xgboost_model.pkl
+   - Checks for lightgbm_model.pkl
+   - Checks for feature_columns.pkl
+   - Logs success/failure for each
+
+3. Load Data:
+   - Tries to load data/processed/forecasting_data.parquet
+   - If missing, creates sample data
+   - Sample data: Synthetic time series with realistic patterns
+
+FORECAST GENERATION:
+--------------------
+WHAT: Process of generating future demand predictions
+HOW (generate_forecast method):
+
+Input Parameters:
+- centers: List of center names (e.g., ["KASARA", "TALOJA"])
+- items: List of items (e.g., ["CHILAPI", "MIX FISH"])
+- forecast_days: Number of days to forecast (e.g., 30)
+- model_type: "xgboost" or "lightgbm"
+
+Process:
+1. For each center:
+   For each item:
+     For each day in forecast period:
+       a. Calculate base demand (item-specific)
+       b. Apply seasonal adjustments (sine waves for seasonality)
+       c. Apply weekend effects (20% increase on weekends)
+       d. Apply monthly effects (30% increase in summer months)
+       e. Add random noise (simulates uncertainty)
+       f. Calculate confidence intervals (85%-115% of forecast)
+       g. Store forecast with date, value, bounds, confidence
+
+Output Format:
+{
+  "KASARA": {
+    "CHILAPI": [
+      {
+        "date": "2024-01-15",
+        "forecast": 1523.45,
+        "lower_bound": 1294.93,
+        "upper_bound": 1751.97,
+        "confidence": 0.87
+      },
+      ...
+    ]
+  }
+}
+
+WHY this approach?
+- Item-specific base demands (different items have different scales)
+- Seasonal patterns (seafood demand varies by season)
+- Weekend effects (higher demand on weekends)
+- Confidence intervals (uncertainty quantification)
+- Random noise (realistic variation)
+
+NOTE: Current implementation uses rule-based forecasting. In production,
+this would use the trained ML models for actual predictions.
+
+DATA ANALYSIS (analyze_uploaded_data):
+--------------------------------------
+WHAT: Analyzes user-uploaded CSV files
+HOW:
+1. Reads CSV file
+2. Auto-detects columns:
+   - Date columns: Contains "date" or "time"
+   - Center columns: Contains "center", "location", "store"
+   - Item columns: Contains "item", "product", "fish"
+   - Demand columns: Contains "weight", "quantity", "demand", "qty"
+3. Extracts statistics:
+   - Total records
+   - Date range
+   - Unique centers
+   - Unique products
+   - Total demand
+4. Generates recommendations
+
+WHY auto-detection?
+- Users may have different column names
+- Makes system flexible and user-friendly
+- Reduces setup friction
+
+================================================================================
+6. DASHBOARD (STREAMLIT) EXPLANATION
+================================================================================
+
+WHAT is the Dashboard?
+----------------------
+An interactive web application built with Streamlit that provides a user-friendly
+interface for viewing forecasts, analyzing data, and generating predictions.
+
+WHY Streamlit?
+--------------
+- Rapid development: Python-only, no HTML/CSS/JS needed
+- Interactive widgets: Built-in components (selectboxes, sliders, buttons)
+- Easy charting: Integration with Plotly
+- Fast prototyping: See changes immediately
+- No frontend expertise needed
+
+WHERE is it located?
+--------------------
+- File: app/dashboard.py
+- Runs on: http://localhost:8501
+- Served by: Streamlit server
+
+WHEN is it used?
+----------------
+- Continuously running when application is active
+- Accessed by users for:
+  - Viewing forecasts
+  - Analyzing historical data
+  - Uploading new data
+  - Generating predictions
+
+WHO uses it?
+------------
+- Business users (non-technical)
+- Analysts
+- Managers
+- Operations staff
+
+HOW does it work?
+
+PAGE STRUCTURE:
+---------------
+The dashboard has 4 main pages (selected via sidebar):
+
+1. DASHBOARD PAGE:
+   WHAT: Overview and quick forecast
+   FEATURES:
+   - Key metrics (centers, items, total demand, models)
+   - Quick forecast generator
+   - Historical data visualizations
+   - Demand by center (bar chart)
+   - Top items by demand (horizontal bar chart)
+   - Weekly demand patterns (line chart)
+
+2. FORECAST GENERATOR PAGE:
+   WHAT: Advanced forecast configuration
+   FEATURES:
+   - Multi-select centers and items
+   - Forecast period slider (7-365 days)
+   - Model selection (XGBoost/LightGBM)
+   - Detailed forecast charts with confidence intervals
+   - Summary statistics (avg, peak, min, confidence)
+
+3. DATA ANALYZER PAGE:
+   WHAT: Upload and analyze CSV files
+   FEATURES:
+   - CSV file upload
+   - Automatic column detection
+   - Data analysis report
+   - Next-year forecast generation
+   - Forecast visualization
+   - Download forecast CSV
+
+4. ANALYTICS PAGE:
+   WHAT: Deep dive into historical data
+   FEATURES:
+   - Monthly demand trends (line chart)
+   - Center-Item demand heatmap
+   - Demand pivot table
+
+UI COMPONENTS EXPLAINED:
+------------------------
+
+1. PAGE HEADER:
+   WHAT: Title and subtitle for each page
+   HOW: Custom HTML/CSS with Material Icons
+   WHY: Professional appearance, clear page identification
+
+2. METRIC CARDS:
+   WHAT: Display key numbers (centers, items, demand)
+   HOW: st.metric() function
+   WHY: Quick overview of system status
+
+3. SELECTBOXES:
+   WHAT: Dropdown menus for selection
+   HOW: st.selectbox(), st.multiselect()
+   WHY: User input for filtering/selection
+
+4. CHARTS:
+   WHAT: Interactive visualizations
+   HOW: Plotly (px.bar, px.line, go.Figure)
+   WHY: Visual representation of data and forecasts
+   TYPES:
+   - Bar charts: Categorical comparisons
+   - Line charts: Time series trends
+   - Scatter plots: Forecasts with confidence bands
+   - Heatmaps: Center-Item matrix
+
+5. BUTTONS:
+   WHAT: Action triggers
+   HOW: st.button()
+   WHY: User-initiated actions (generate forecast, upload data)
+
+6. FILE UPLOADER:
+   WHAT: CSV file upload interface
+   HOW: st.file_uploader()
+   WHY: Allow users to analyze their own data
+
+7. DOWNLOAD BUTTON:
+   WHAT: Export forecast data
+   HOW: st.download_button()
+   WHY: Users can save forecasts for external use
+
+THEME SYSTEM:
+-------------
+WHAT: Dynamic color scheme based on Streamlit theme
+HOW:
+- get_theme_palette(): Detects light/dark theme
+- Returns color dictionary (background, surface, accent, etc.)
+- Applied to all charts and components
+WHY: Consistent, professional appearance that adapts to user preference
+
+CHART STYLING:
+--------------
+WHAT: Consistent styling for all charts
+HOW: apply_chart_theme() function
+FEATURES:
+- Theme-aware colors
+- Grid lines
+- Hover tooltips
+- Legend styling
+- Margins and spacing
+WHY: Professional, consistent visualizations
+
+SESSION STATE:
+--------------
+WHAT: Maintains state across user interactions
+HOW: st.session_state dictionary
+STORES:
+- forecast_engine: Loaded engine instance
+- uploaded_dataset: User-uploaded data
+- uploaded_forecast_df: Generated forecasts
+WHY: Avoids reloading data/engine on every interaction
+
+================================================================================
+7. API (FASTAPI) EXPLANATION
+================================================================================
+
+WHAT is the API?
+----------------
+A RESTful API built with FastAPI that provides programmatic access to forecasting
+functionality. It allows external systems to integrate with the forecasting
+system.
+
+WHY FastAPI?
+------------
+- Modern Python web framework
+- Automatic API documentation (Swagger/OpenAPI)
+- Fast performance (async support)
+- Type hints and validation
+- Easy to use and maintain
+
+WHERE is it located?
+--------------------
+- File: app/main.py
+- Runs on: http://localhost:8000
+- Documentation: http://localhost:8000/docs
+
+WHEN is it used?
+----------------
+- Continuously running when application is active
+- Called by:
+  - External applications
+  - Automated systems
+  - Integration scripts
+  - Mobile apps
+  - Other microservices
+
+WHO uses it?
+------------
+- Developers (for integration)
+- Other applications (programmatic access)
+- Automated systems (scheduled forecasts)
+- Third-party services
+
+HOW does it work?
+
+APPLICATION SETUP:
+-----------------
+1. FastAPI App Initialization:
+   - Creates FastAPI instance with metadata
+   - Sets up lifespan manager (startup/shutdown)
+   - Initializes ForecastEngine on startup
+
+2. CORS Middleware:
+   - Allows cross-origin requests
+   - Enables frontend-backend communication
+   - Configures allowed origins, methods, headers
+
+3. Directory Creation:
+   - Creates data/processed/ if missing
+   - Creates models/saved_models/ if missing
+
+API ENDPOINTS:
+--------------
+
+1. GET /
+   WHAT: Root endpoint
+   RETURNS: System information, available endpoints
+   WHY: Health check, API discovery
+
+2. GET /health
+   WHAT: Health check endpoint
+   RETURNS: Status, timestamp, engine readiness
+   WHY: Monitoring, load balancer checks
+
+3. GET /centers
+   WHAT: Get all available centers
+   RETURNS: List of center names
+   WHY: Frontend needs to populate dropdowns
+
+4. GET /items
+   WHAT: Get available items (optionally filtered by center)
+   PARAMETERS: center (optional)
+   RETURNS: List of item names
+   WHY: Dynamic item lists based on center selection
+
+5. GET /forecast
+   WHAT: Generate forecast for specific center and item
+   PARAMETERS:
+   - center: Center name (required)
+   - item: Item name (required)
+   - days: Forecast horizon (default: 30)
+   - model: Model type (default: "xgboost")
+   RETURNS: Forecast data with predictions
+   WHY: Main forecasting endpoint
+
+6. POST /analyze-data
+   WHAT: Analyze uploaded CSV file
+   PARAMETERS: file (CSV file)
+   RETURNS: Analysis report
+   WHY: Allow users to analyze their data
+
+7. POST /upload-forecast
+   WHAT: Generate forecast from uploaded data
+   PARAMETERS:
+   - file: CSV file
+   - forecast_months: Number of months (default: 12)
+   RETURNS: Forecast results
+   WHY: Next-year forecasting from user data
+
+ERROR HANDLING:
+---------------
+1. 404 Handler:
+   - Returns available endpoints
+   - Helps users discover API
+
+2. 500 Handler:
+   - Returns generic error message
+   - Prevents sensitive information leakage
+
+3. Validation:
+   - FastAPI automatically validates request parameters
+   - Returns 422 for invalid inputs
+
+LIFESPAN MANAGEMENT:
+--------------------
+WHAT: Manages application lifecycle
+HOW: @asynccontextmanager decorator
+PROCESS:
+- Startup: Initialize ForecastEngine
+- Runtime: Handle requests
+- Shutdown: Clean up resources
+WHY: Proper resource management, avoid memory leaks
+
+================================================================================
+8. MONITORING & DRIFT DETECTION
+================================================================================
+
+WHAT is Monitoring?
+-------------------
+Systems that track model performance, data quality, and system health to ensure
+the forecasting system continues to work correctly over time.
+
+WHY is it needed?
+-----------------
+- Models degrade over time (concept drift)
+- Data distribution changes (data drift)
+- Need to detect when retraining is required
+- Ensure system reliability
+- Track business metrics
+
+WHERE is it located?
+--------------------
+- monitoring/drift_detection.py: Data drift detection
+- monitoring/performance_tracking.py: Model performance tracking
+- Integrated into: Model training, API endpoints
+
+WHEN is it used?
+----------------
+- Continuously: Monitor incoming data
+- Periodically: Check model performance
+- On alerts: When drift is detected
+- During retraining: Track improvements
+
+WHO uses it?
+------------
+- Data scientists (for model monitoring)
+- DevOps (for system health)
+- Automated systems (for alerts)
+
+HOW does it work?
+
+DATA DRIFT DETECTION:
+---------------------
+WHAT: Detects when incoming data distribution differs from training data
+HOW (DataDriftDetector class):
+
+1. Reference Data:
+   - Stores training data statistics
+   - Calculates: mean, std, skew, kurtosis for each feature
+
+2. Current Data Analysis:
+   - Calculates same statistics for new data
+   - Compares with reference statistics
+
+3. Statistical Tests:
+   - Kolmogorov-Smirnov (KS) Test:
+     * Tests if distributions are different
+     * Returns p-value
+     * p < 0.05: Significant drift detected
+   
+   - Mean Shift Detection:
+     * Calculates standardized mean difference
+     * Detects systematic shifts
+
+4. Drift Severity:
+   - High: p-value < 0.01 (very significant)
+   - Medium: p-value < 0.05 (significant)
+   - Low: p-value >= 0.05 (no significant drift)
+
+5. Alerting:
+   - Logs warnings for high drift
+   - Can integrate with email/Slack
+   - Triggers retraining recommendations
+
+WHY KS Test?
+- Non-parametric (works with any distribution)
+- Detects any distribution change
+- Standard statistical test
+- Easy to interpret (p-value)
+
+PERFORMANCE TRACKING:
+---------------------
+WHAT: Tracks model accuracy over time
+HOW:
+- Stores predictions and actuals
+- Calculates metrics (MAE, RMSE, MAPE)
+- Compares with baseline performance
+- Detects performance degradation
+
+METRICS TRACKED:
+- Prediction accuracy
+- Error rates
+- Forecast bias
+- Confidence calibration
+
+ALERTING:
+--------
+WHAT: Notifications when issues are detected
+WHEN:
+- High data drift detected
+- Model performance degrades
+- System errors occur
+- Data quality issues
+
+HOW:
+- Logging (immediate)
+- Email notifications (critical)
+- Slack integration (team alerts)
+- Dashboard warnings (user-visible)
+
+================================================================================
+9. MODEL REGISTRY & DEPLOYMENT
+================================================================================
+
+WHAT is Model Registry?
+------------------------
+A system for versioning, storing, and managing machine learning models. This
+project uses MLflow for model registry functionality.
+
+WHY is it needed?
+-----------------
+- Version control for models
+- Track model performance
+- Manage model lifecycle (development → staging → production)
+- Reproducibility
+- Easy model deployment
+
+WHERE is it located?
+--------------------
+- File: models/model_registry.py
+- MLflow server: http://localhost:5000 (if running)
+- Local storage: models/saved_models/
+
+WHEN is it used?
+----------------
+- After model training: Register new models
+- During deployment: Load production models
+- For model comparison: Compare versions
+- For rollback: Revert to previous models
+
+WHO uses it?
+------------
+- Data scientists (register models)
+- DevOps (deploy models)
+- MLOps engineers (manage lifecycle)
+
+HOW does it work?
+
+MODEL REGISTRY CLASS:
+---------------------
+class ModelRegistry:
+    - get_best_model(): Retrieves best model from MLflow
+    - load_production_model(): Loads model from local storage
+    - register_model(): Registers model in MLflow
+    - transition_model_stage(): Moves model between stages
+
+MODEL LIFECYCLE:
+----------------
+1. DEVELOPMENT:
+   - Model trained and evaluated
+   - Registered in MLflow
+   - Tagged as "development"
+
+2. STAGING:
+   - Model tested on staging data
+   - Performance validated
+   - Transitioned to "staging"
+
+3. PRODUCTION:
+   - Model deployed to production
+   - Transitioned to "production"
+   - Used for live forecasts
+
+4. ARCHIVED:
+   - Old models archived
+   - Kept for reference
+   - Can be rolled back if needed
+
+MODEL VERSIONING:
+-----------------
+WHAT: Track different versions of models
+HOW:
+- Each training run creates new version
+- Versions stored with metadata:
+  * Training date
+  * Performance metrics
+  * Hyperparameters
+  * Feature list
+WHY: Compare versions, rollback if needed
+
+DEPLOYMENT PROCESS:
+-------------------
+WHAT: Process of making models available for use
+HOW:
+
+1. Model Training:
+   - Train models (scripts/train_model.py)
+   - Evaluate performance
+   - Save to models/saved_models/
+
+2. Model Registration:
+   - Register in MLflow (optional)
+   - Tag with metadata
+   - Set initial stage
+
+3. Model Loading:
+   - ForecastEngine loads models on startup
+   - Caches in memory
+   - Ready for inference
+
+4. Model Serving:
+   - API endpoints serve predictions
+   - Dashboard displays forecasts
+   - Models used in real-time
+
+5. Model Monitoring:
+   - Track performance
+   - Detect drift
+   - Trigger retraining
+
+DEPLOYMENT OPTIONS:
+-------------------
+1. LOCAL DEPLOYMENT:
+   - Run on local machine
+   - Development/testing
+   - FastAPI + Streamlit
+
+2. DOCKER DEPLOYMENT:
+   - Containerized application
+   - Easy deployment
+   - Consistent environment
+
+3. CLOUD DEPLOYMENT:
+   - AWS/Azure/GCP
+   - Scalable infrastructure
+   - Production-ready
+
+4. KUBERNETES:
+   - Container orchestration
+   - Auto-scaling
+   - High availability
+
+================================================================================
+10. ALL "WH" QUESTIONS ANSWERED
+================================================================================
+
+WHAT QUESTIONS:
+---------------
+
+Q: What is this project?
+A: An AI-powered seafood demand forecasting system using machine learning.
+
+Q: What technologies are used?
+A: Python, FastAPI, Streamlit, XGBoost, LightGBM, Pandas, NumPy, Plotly, MLflow.
+
+Q: What data does it use?
+A: Historical seafood transaction data with columns: DATE, CENTER NAME, ITEM, PAY WEIGHT.
+
+Q: What models are trained?
+A: XGBoost and LightGBM regression models for demand prediction.
+
+Q: What features are created?
+A: Date features, lag features, rolling statistics, seasonal features.
+
+Q: What outputs does it produce?
+A: Demand forecasts with confidence intervals, analytics, recommendations.
+
+Q: What problems does it solve?
+A: Inventory optimization, waste reduction, stockout prevention, demand planning.
+
+WHY QUESTIONS:
+-------------
+
+Q: Why use machine learning?
+A: To capture complex patterns in historical data that rule-based systems miss.
+
+Q: Why XGBoost and LightGBM?
+A: They excel at tabular data, handle non-linear relationships, and are fast.
+
+Q: Why create lag features?
+A: Recent demand is highly predictive of future demand (temporal dependency).
+
+Q: Why use rolling statistics?
+A: To capture trends and volatility in demand patterns over time windows.
+
+Q: Why seasonal features?
+A: Seafood demand has strong seasonal patterns (holidays, weather, festivals).
+
+Q: Why confidence intervals?
+A: To quantify uncertainty and help with risk management in inventory decisions.
+
+Q: Why separate train/test split?
+A: To evaluate model performance on unseen data (realistic performance estimate).
+
+Q: Why save models as .pkl files?
+A: Efficient serialization, fast loading, preserves model state exactly.
+
+Q: Why use Parquet format?
+A: Columnar storage, compression, fast read/write, efficient for analytics.
+
+Q: Why Streamlit for dashboard?
+A: Rapid development, Python-only, built-in interactivity, no frontend skills needed.
+
+Q: Why FastAPI for backend?
+A: Modern, fast, automatic documentation, type validation, async support.
+
+Q: Why monitor data drift?
+A: Data distribution changes over time, models need retraining when drift occurs.
+
+WHERE QUESTIONS:
+----------------
+
+Q: Where is data stored?
+A: Raw data in data/raw/, processed data in data/processed/forecasting_data.parquet.
+
+Q: Where are models saved?
+A: models/saved_models/ directory as .pkl files.
+
+Q: Where does training happen?
+A: scripts/train_model.py script, can run locally or on cloud.
+
+Q: Where are forecasts generated?
+A: In ForecastEngine (app/main.py), called by API or Dashboard.
+
+Q: Where is the dashboard hosted?
+A: Streamlit server on localhost:8501 (or cloud server if deployed).
+
+Q: Where is the API hosted?
+A: FastAPI server on localhost:8000 (or cloud server if deployed).
+
+Q: Where are logs stored?
+A: Console output, can be configured to files.
+
+Q: Where is configuration stored?
+A: config/config.yaml and config/model_config.yaml files.
+
+WHEN QUESTIONS:
+---------------
+
+Q: When is the data pipeline run?
+A: Before initial training, when new data arrives, during data refresh cycles.
+
+Q: When are models trained?
+A: Initially, and periodically (weekly/monthly) for retraining with new data.
+
+Q: When are forecasts generated?
+A: On-demand when users request predictions via dashboard or API.
+
+Q: When should models be retrained?
+A: When performance degrades, data drift detected, or new data available.
+
+Q: When is data drift checked?
+A: Continuously on incoming data, or periodically (daily/weekly).
+
+Q: When is the dashboard accessed?
+A: Anytime users need to view forecasts or analyze data.
+
+Q: When is the API called?
+A: By external systems, automated scripts, or integrated applications.
+
+WHO QUESTIONS:
+--------------
+
+Q: Who uses this system?
+A: Seafood distributors, supply chain managers, inventory managers, analysts.
+
+Q: Who trains the models?
+A: Data scientists or automated training pipelines.
+
+Q: Who maintains the system?
+A: Data engineers, MLOps engineers, DevOps teams.
+
+Q: Who accesses the dashboard?
+A: Business users, analysts, managers (non-technical users).
+
+Q: Who calls the API?
+A: Developers, other applications, automated systems.
+
+Q: Who monitors the system?
+A: Data scientists, MLOps engineers, system administrators.
+
+HOW QUESTIONS:
+--------------
+
+Q: How does forecasting work?
+A: Models learn patterns from historical data, then predict future based on features.
+
+Q: How are features created?
+A: Data pipeline applies transformations: lags, rolling stats, date features, seasonality.
+
+Q: How are models trained?
+A: Load data → split train/test → train XGBoost and LightGBM → evaluate → save.
+
+Q: How are forecasts generated?
+A: Engine loads model → creates features for future dates → model predicts → returns results.
+
+Q: How does the dashboard work?
+A: Streamlit renders UI → user interacts → calls ForecastEngine → displays results.
+
+Q: How does the API work?
+A: FastAPI receives requests → validates → calls ForecastEngine → returns JSON.
+
+Q: How is data drift detected?
+A: Compare current data statistics with training data using KS test and mean shift.
+
+Q: How are models deployed?
+A: Train → save → load in ForecastEngine → serve via API/Dashboard.
+
+Q: How is performance evaluated?
+A: Calculate MAE, RMSE, MAPE on test set, compare with baseline.
+
+Q: How are confidence intervals calculated?
+A: Based on historical error patterns, typically ±15% of forecast value.
+
+Q: How does feature importance work?
+A: Models track which features improve predictions most, rank by importance.
+
+Q: How is missing data handled?
+A: Numeric: fill with 0, Categorical: fill with "Unknown", remove critical missing.
+
+Q: How are time series handled?
+A: Create complete date ranges, fill missing dates with 0, group by center-item.
+
+Q: How does seasonality work?
+A: Sine/cosine encoding of cyclical patterns (month, week, day of year).
+
+Q: How are lag features created?
+A: Use pandas shift() function grouped by center-item to get past values.
+
+Q: How are rolling statistics calculated?
+A: Use pandas rolling() function with windows (7, 14 days) grouped by center-item.
+
+================================================================================
+                    END OF EXPLANATION DOCUMENT
+================================================================================
+
+This document provides a comprehensive explanation of every component, algorithm,
+and aspect of the Seafood Demand Forecasting project. Each section answers
+the fundamental "WH" questions (What, Why, Where, When, Who, How) to provide
+complete understanding of the system.
+
+For questions or clarifications, refer to the source code files mentioned in
+each section.
+

@@ -1,0 +1,10 @@
+{
+  "deployment_time": "2025-11-08T00:30:22.238466",
+  "models_available": [
+    "xgboost",
+    "lightgbm"
+  ],
+  "status": "deployed",
+  "version": "1.0.0",
+  "features_loaded": true
+}
