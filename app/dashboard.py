@@ -1,5 +1,5 @@
 """
-Streamlit Dashboard for Seafood Demand Forecasting
+Streamlit Dashboard for Jagdamba fisheries Demand Forecasting.
 """
 
 import streamlit as st
@@ -404,9 +404,9 @@ except ImportError:
 
 
 # Page config
-icon_path = os.path.join(project_root, "app", "frontend", "static", "images", "seafood_dashboard_icon.svg")
+icon_path = os.path.join(project_root, "app", "frontend", "static", "images", "Jagdamba fisheries_dashboard_icon.svg")
 st.set_page_config(
-    page_title="Seafood Demand Forecasting",
+    page_title="Jagdamba Fisheries Demand Forecasting",
     page_icon=icon_path,
     layout="wide",
     initial_sidebar_state="expanded",
@@ -773,7 +773,7 @@ st.sidebar.markdown(
     <div class="sidebar-header">
         <span class="material-symbols-rounded sidebar-header__icon">donut_small</span>
         <div>
-            <h2>Seafood Forecasting</h2>
+            <h2>Jagdamba fisheries Forecasting</h2>
             <span>Demand Intelligence Suite</span>
         </div>
     </div>
@@ -788,7 +788,7 @@ page = st.sidebar.selectbox("Navigate", ["Dashboard", "Forecast Generator", "Dat
 # Dashboard Page
 if page == "Dashboard":
     render_page_header(
-        "Seafood Demand Forecasting Dashboard",
+        "Jagdamba Fisheries Demand Forecasting Dashboard",
         "Monitor key demand signals and simulate forward-looking scenarios.",
         icon="leaderboard",
     )
@@ -1382,7 +1382,7 @@ st.markdown('<hr class="content-divider">', unsafe_allow_html=True)
 st.markdown(
     """
 <div class="footer">
-    <p>Seafood Demand Forecasting System v3.0 | Built By Satyajeet Desai</p>
+    <p>Jagdamba Fisheries Demand Forecasting System v3.0 | Built By Susmit Naik</p>
 </div>
 """,
     unsafe_allow_html=True,
