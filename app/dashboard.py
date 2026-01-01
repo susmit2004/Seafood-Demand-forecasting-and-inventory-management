@@ -1136,186 +1136,212 @@ elif page == "Data Analyzer":
 
     if uploaded_file is not None:
         try:
-            uploaded_file.seek(0)
-            content = uploaded_file.read()
-            analysis = forecast_engine.analyze_uploaded_data(content)
-
-            if analysis.get("status") == "success":
-                uploaded_df = analysis.pop("dataframe", None)
-                st.session_state["uploaded_dataset"] = uploaded_df
-                st.session_state.pop("uploaded_forecast_df", None)
-
-                st.success("Data analyzed successfully.")
-
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    st.metric("Total Records", analysis.get("total_records", 0))
-
-                    if analysis.get("date_range"):
-                        st.markdown(
-                            f"""
-                            <div class="info-box">
-                                <strong>Date Range</strong><br/>
-                                {analysis['date_range']['start']} to {analysis['date_range']['end']}
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
-
-                    if analysis.get("centers"):
-                        st.write(f"Locations detected ({len(analysis['centers'])}):")
-                        st.write(analysis["centers"][:10])
-
-                with col2:
-                    if analysis.get("total_demand", 0) > 0:
-                        st.metric("Total Demand", f"{analysis['total_demand']:,.0f} kg")
-
-                    if analysis.get("products"):
-                        st.write(f"Products detected ({len(analysis['products'])}):")
-                        st.write(analysis["products"][:10])
-
-                recommendations = analysis.get("recommendations", [])
-                if recommendations:
-                    render_section_heading("Recommendations", icon="task_alt")
-                    items = "".join(
-                        [
-                            f"<li><span class='material-symbols-rounded'>task_alt</span>{rec}</li>"
-                            for rec in recommendations
-                        ]
-                    )
-                    st.markdown(f"<ul class='recommendation-list'>{items}</ul>", unsafe_allow_html=True)
-
-                if uploaded_df is not None and not uploaded_df.empty:
-                    render_section_heading("Uploaded Data Preview", icon="table_chart")
-                    st.dataframe(uploaded_df.head(200), width="stretch", height=300)
-
-                st.markdown('<hr class="content-divider">', unsafe_allow_html=True)
-                render_section_heading("Generate Forecast from Uploaded Data", icon="show_chart")
-
-                forecast_months = st.slider(
-                    "Forecast Months",
-                    min_value=1,
-                    max_value=24,
-                    value=12,
-                    key="uploaded_forecast_months",
-                )
-
-                if st.button("Generate Next Year Forecast", key="uploaded_forecast_btn"):
-                    data_source = uploaded_df
-                    if (data_source is None or data_source.empty) and "uploaded_dataset" in st.session_state:
-                        data_source = st.session_state.get("uploaded_dataset")
-
-                    if data_source is None or data_source.empty:
-                        st.warning("The uploaded dataset is empty or unreadable. Please upload a valid CSV file.")
-                    else:
-                        with st.spinner("Generating forecast from uploaded data..."):
-                            forecast_records = forecast_engine.generate_forecast_from_uploaded_data(
-                                data_source, forecast_months
-                            )
-
-                            if forecast_records:
-                                forecast_df = pd.DataFrame(forecast_records)
-                                st.session_state["uploaded_forecast_df"] = forecast_df
-                                st.success("Forecast generated successfully.")
-                                st.info(f"Created a {forecast_months}-month projection based on the uploaded signals.")
-                            else:
-                                st.warning("Could not derive forecast due to missing date or demand columns.")
-
-                forecast_df = st.session_state.get("uploaded_forecast_df")
-                if forecast_df is not None and not forecast_df.empty:
-                    st.markdown('<hr class="content-divider">', unsafe_allow_html=True)
-                    render_section_heading("Forecast Output", icon="stacked_line_chart")
-
-                    col_sel1, col_sel2 = st.columns(2)
-                    with col_sel1:
-                        selected_center = st.selectbox(
-                            "Select Location",
-                            sorted(forecast_df["Center"].unique()),
-                            key="uploaded_center_select",
-                        )
-                    with col_sel2:
-                        filtered_items = sorted(
-                            forecast_df[forecast_df["Center"] == selected_center]["Item"].unique()
-                        )
-                        selected_item = st.selectbox(
-                            "Select Product",
-                            filtered_items,
-                            key="uploaded_item_select",
-                        )
-
-                    filtered_df = forecast_df[
-                        (forecast_df["Center"] == selected_center) & (forecast_df["Item"] == selected_item)
-                    ].copy()
-
-                    if not filtered_df.empty:
-                        current_palette = get_palette()
-                        filtered_df["MonthStart"] = pd.to_datetime(filtered_df["Month"])
-
-                        fig_uploaded = go.Figure()
-                        fig_uploaded.add_trace(
-                            go.Scatter(
-                                x=filtered_df["MonthStart"],
-                                y=filtered_df["Forecast"],
-                                name="Forecast",
-                                mode="lines+markers",
-                                line=dict(color=current_palette["accent"], width=3),
-                            )
-                        )
-                        fig_uploaded.add_trace(
-                            go.Scatter(
-                                x=filtered_df["MonthStart"],
-                                y=filtered_df["UpperBound"],
-                                name="Upper Bound",
-                                line=dict(color=current_palette["accent_alt"], dash="dot"),
-                            )
-                        )
-                        fig_uploaded.add_trace(
-                            go.Scatter(
-                                x=filtered_df["MonthStart"],
-                                y=filtered_df["LowerBound"],
-                                name="Lower Bound",
-                                fill="tonexty",
-                                fillcolor=hex_to_rgba(current_palette["accent"], 0.12),
-                                line=dict(color=current_palette["accent_alt"], dash="dot"),
-                            )
-                        )
-                        fig_uploaded.update_layout(
-                            title=f"{selected_item} forecast for {selected_center}",
-                            xaxis_title="Month",
-                            yaxis_title="Demand (kg)",
-                        )
-                        st.plotly_chart(apply_chart_theme(fig_uploaded), width="stretch")
-
-                        summary_col1, summary_col2, summary_col3 = st.columns(3)
-                        with summary_col1:
-                            st.metric("Average Forecast", f"{filtered_df['Forecast'].mean():,.0f} kg")
-                        with summary_col2:
-                            st.metric("Peak Projection", f"{filtered_df['UpperBound'].max():,.0f} kg")
-                        with summary_col3:
-                            st.metric("Lowest Projection", f"{filtered_df['LowerBound'].min():,.0f} kg")
-
-                        st.dataframe(
-                            filtered_df[["Month", "Forecast", "LowerBound", "UpperBound"]],
-                            width="stretch",
-                        )
-
-                        st.download_button(
-                            label="Download Forecast CSV",
-                            data=filtered_df.to_csv(index=False),
-                            file_name=f"uploaded_forecast_{selected_center}_{selected_item}.csv",
-                            mime="text/csv",
-                        )
+            # Read file content once and store in session state
+            if "uploaded_file_content" not in st.session_state or st.session_state.get("uploaded_file_name") != uploaded_file.name:
+                uploaded_file.seek(0)
+                content = uploaded_file.read()
+                st.session_state["uploaded_file_content"] = content
+                st.session_state["uploaded_file_name"] = uploaded_file.name
+                
+                # Analyze the uploaded data
+                analysis = forecast_engine.analyze_uploaded_data(content)
+                
+                if analysis.get("status") == "success":
+                    # Store both the dataframe and analysis results in session state
+                    uploaded_df = analysis.pop("dataframe", None)
+                    st.session_state["uploaded_dataset"] = uploaded_df
+                    st.session_state["uploaded_analysis"] = analysis
+                    st.session_state.pop("uploaded_forecast_df", None)
+                    
+                    st.success("Data analyzed successfully.")
+                else:
+                    st.session_state.pop("uploaded_dataset", None)
+                    st.session_state.pop("uploaded_analysis", None)
+                    st.error(f"Analysis failed: {analysis.get('error', 'Unknown error')}")
+                    # Skip rest of processing
+                    st.stop()
             else:
-                st.session_state.pop("uploaded_dataset", None)
-                st.session_state.pop("uploaded_forecast_df", None)
-                st.error(f"Analysis failed: {analysis.get('error', 'Unknown error')}")
+                # Use cached data from session state
+                analysis = st.session_state.get("uploaded_analysis", {})
+                uploaded_df = st.session_state.get("uploaded_dataset", None)
+                if uploaded_df is not None:
+                    st.info("Using previously uploaded data. Upload a new file to refresh.")
+
+            # Display analysis results from session state
+            analysis = st.session_state.get("uploaded_analysis", {})
+            uploaded_df = st.session_state.get("uploaded_dataset", None)
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.metric("Total Records", analysis.get("total_records", 0))
+
+                if analysis.get("date_range"):
+                    st.markdown(
+                        f"""
+                        <div class="info-box">
+                            <strong>Date Range</strong><br/>
+                            {analysis['date_range']['start']} to {analysis['date_range']['end']}
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+                if analysis.get("centers"):
+                    st.write(f"Locations detected ({len(analysis['centers'])}):")
+                    st.write(analysis["centers"][:10])
+
+            with col2:
+                if analysis.get("total_demand", 0) > 0:
+                    st.metric("Total Demand", f"{analysis['total_demand']:,.0f} kg")
+
+                if analysis.get("products"):
+                    st.write(f"Products detected ({len(analysis['products'])}):")
+                    st.write(analysis["products"][:10])
+
+            recommendations = analysis.get("recommendations", [])
+            if recommendations:
+                render_section_heading("Recommendations", icon="task_alt")
+                items = "".join(
+                    [
+                        f"<li><span class='material-symbols-rounded'>task_alt</span>{rec}</li>"
+                        for rec in recommendations
+                    ]
+                )
+                st.markdown(f"<ul class='recommendation-list'>{items}</ul>", unsafe_allow_html=True)
+
+            if uploaded_df is not None and not uploaded_df.empty:
+                render_section_heading("Uploaded Data Preview", icon="table_chart")
+                st.dataframe(uploaded_df.head(200), width="stretch", height=300)
+
+            # st.markdown('<hr class="content-divider">', unsafe_allow_html=True)
+            # render_section_heading("Generate Forecast from Uploaded Data", icon="show_chart")
+            #
+            # forecast_months = st.slider(
+            #     "Forecast Months",
+            #     min_value=1,
+            #     max_value=24,
+            #     value=12,
+            #     key="uploaded_forecast_months",
+            # )
+            #
+            # if st.button("Generate Next Year Forecast", key="uploaded_forecast_btn"):
+            #     # Always use the dataframe from session state
+            #     data_source = st.session_state.get("uploaded_dataset")
+            #     
+            #     if data_source is None or data_source.empty:
+            #         st.warning("The uploaded dataset is empty or unreadable. Please upload a valid CSV file.")
+            #     else:
+            #         with st.spinner("Generating forecast from uploaded data..."):
+            #             forecast_records = forecast_engine.generate_forecast_from_uploaded_data(
+            #                 data_source, forecast_months
+            #             )
+            #
+            #             if forecast_records:
+            #                 forecast_df = pd.DataFrame(forecast_records)
+            #                 st.session_state["uploaded_forecast_df"] = forecast_df
+            #                 st.success("Forecast generated successfully.")
+            #                 st.info(f"Created a {forecast_months}-month projection based on the uploaded signals.")
+            #             else:
+            #                 st.warning("Could not derive forecast due to missing date or demand columns.")
+            #
+            # forecast_df = st.session_state.get("uploaded_forecast_df")
+            # if forecast_df is not None and not forecast_df.empty:
+            #     st.markdown('<hr class="content-divider">', unsafe_allow_html=True)
+            #     render_section_heading("Forecast Output", icon="stacked_line_chart")
+            #
+            #     col_sel1, col_sel2 = st.columns(2)
+            #     with col_sel1:
+            #         selected_center = st.selectbox(
+            #             "Select Location",
+            #             sorted(forecast_df["Center"].unique()),
+            #             key="uploaded_center_select",
+            #         )
+            #     with col_sel2:
+            #         filtered_items = sorted(
+            #             forecast_df[forecast_df["Center"] == selected_center]["Item"].unique()
+            #         )
+            #         selected_item = st.selectbox(
+            #             "Select Product",
+            #             filtered_items,
+            #             key="uploaded_item_select",
+            #         )
+            #
+            #     filtered_df = forecast_df[
+            #         (forecast_df["Center"] == selected_center) & (forecast_df["Item"] == selected_item)
+            #     ].copy()
+            #
+            #     if not filtered_df.empty:
+            #         current_palette = get_palette()
+            #         filtered_df["MonthStart"] = pd.to_datetime(filtered_df["Month"])
+            #
+            #         fig_uploaded = go.Figure()
+            #         fig_uploaded.add_trace(
+            #             go.Scatter(
+            #                 x=filtered_df["MonthStart"],
+            #                 y=filtered_df["Forecast"],
+            #                 name="Forecast",
+            #                 mode="lines+markers",
+            #                 line=dict(color=current_palette["accent"], width=3),
+            #             )
+            #         )
+            #         fig_uploaded.add_trace(
+            #             go.Scatter(
+            #                 x=filtered_df["MonthStart"],
+            #                 y=filtered_df["UpperBound"],
+            #                 name="Upper Bound",
+            #                 line=dict(color=current_palette["accent_alt"], dash="dot"),
+            #             )
+            #         )
+            #         fig_uploaded.add_trace(
+            #             go.Scatter(
+            #                 x=filtered_df["MonthStart"],
+            #                 y=filtered_df["LowerBound"],
+            #                 name="Lower Bound",
+            #                 fill="tonexty",
+            #                 fillcolor=hex_to_rgba(current_palette["accent"], 0.12),
+            #                 line=dict(color=current_palette["accent_alt"], dash="dot"),
+            #             )
+            #         )
+            #         fig_uploaded.update_layout(
+            #             title=f"{selected_item} forecast for {selected_center}",
+            #             xaxis_title="Month",
+            #             yaxis_title="Demand (kg)",
+            #         )
+            #         st.plotly_chart(apply_chart_theme(fig_uploaded), width="stretch")
+            #
+            #         summary_col1, summary_col2, summary_col3 = st.columns(3)
+            #         with summary_col1:
+            #             st.metric("Average Forecast", f"{filtered_df['Forecast'].mean():,.0f} kg")
+            #         with summary_col2:
+            #             st.metric("Peak Projection", f"{filtered_df['UpperBound'].max():,.0f} kg")
+            #         with summary_col3:
+            #             st.metric("Lowest Projection", f"{filtered_df['LowerBound'].min():,.0f} kg")
+            #
+            #         st.dataframe(
+            #             filtered_df[["Month", "Forecast", "LowerBound", "UpperBound"]],
+            #             width="stretch",
+            #         )
+            #
+            #         st.download_button(
+            #             label="Download Forecast CSV",
+            #             data=filtered_df.to_csv(index=False),
+            #             file_name=f"uploaded_forecast_{selected_center}_{selected_item}.csv",
+            #             mime="text/csv",
+            #         )
+
         except Exception as e:
             st.session_state.pop("uploaded_dataset", None)
-            st.session_state.pop("uploaded_forecast_df", None)
+            st.session_state.pop("uploaded_analysis", None)
+            st.session_state.pop("uploaded_file_content", None)
+            st.session_state.pop("uploaded_file_name", None)
             st.error(f"Error analyzing file: {str(e)}")
     else:
+        # Clear session state when no file is uploaded
         st.session_state.pop("uploaded_dataset", None)
+        st.session_state.pop("uploaded_analysis", None)
+        st.session_state.pop("uploaded_file_content", None)
+        st.session_state.pop("uploaded_file_name", None)
         st.session_state.pop("uploaded_forecast_df", None)
         st.info("Please upload a CSV file to analyze.")
 

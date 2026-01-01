@@ -19,14 +19,13 @@ streamlit run app/dashboard.py
 git add .
 git commit -m "new UI"
 git push
-
 git pull 
 
 
 
 
 git init
-git add README.md
+git add .
 git commit -m "first commit"
 git branch -M main
 git remote add origin https://github.com/susmit2004/Seafood-Demand-forecasting-and-inventory-management.git
