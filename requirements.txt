@@ -20,3 +20,4 @@ alembic
 psycopg2-binary
 setuptools
 joblib
+altair
